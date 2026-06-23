@@ -657,6 +657,30 @@
             }
         }
 
+        // 🎮 [실시간 참가자 등록 함수] 누락되었던 핵심 비즈니스 로직 추가
+        function submitPlayerJoin() {
+            const nameInput = document.getElementById("player-nickname");
+            const nickname = nameInput.value.trim();
+            
+            if (!nickname) return customAlert("사용할 닉네임을 입력해 주세요.");
+            if (players.length === 0) return customAlert("현재 입장 가능한 방이 활성화되지 않았습니다.");
+
+            // 아직 이름이 채워지지 않은 빈 자리(슬롯) 탐색
+            const firstEmptySlot = players.find(p => p.playerName === "");
+            if (!firstEmptySlot) {
+                return customAlert("❌ 이미 게임 정원이 가득 찬 방입니다.");
+            }
+
+            // 플레이어 객체에 닉네임 바인딩 및 세션 메모리 기록
+            firstEmptySlot.playerName = nickname;
+            joinedCount = players.filter(p => p.playerName !== "").length;
+            
+            localStorage.setItem("mySeatNumber", firstEmptySlot.seatNumber);
+
+            // 파이어베이스 원격 중앙 동기화 오더 발행 및 로컬 UI 즉각 리프레시
+            broadcastState();
+        }
+
         function broadcastState() {
             if (!isFirebaseConfigured) { updateLocalUI(); return; }
             roomRef.set({
@@ -683,7 +707,6 @@
                     return;
                 }
                 
-                // 데이터 무조건 파싱 (실시간 동기화 안정망 확보)
                 gameState = data.gameState || "MAIN"; currentPhase = data.currentPhase || "DAY"; dayCount = data.dayCount || 1;
                 voteState = data.voteState || "NONE"; joinedCount = data.joinedCount || 0; selectedPlayerId = data.selectedPlayerId || null;
                 activeVotes = data.activeVotes || {}; judgmentVotes = data.judgmentVotes || { kill: 0, save: 0, judgeVote: null };
@@ -1467,7 +1490,7 @@
                     } 
                     else if (p1.isContacted) {
                         if (p.role && p.role.name === "마피아") isTargetVisibleInRedNetwork = true;
-                        if (p.role && p.role.faction === "마피아 팀" && p.isContacted) isTargetVisibleInRedNetwork = true;
+                        if (p.role && p.role.faction === "마피아 Team" && p.isContacted) isTargetVisibleInRedNetwork = true;
                     }
                 }
 
@@ -1539,7 +1562,6 @@
         if (urlParams.get('mode') === 'player') {
             isPlayerMode = true;
         } else {
-            // 새로고침 시 세션 안전을 위해 무조건 패스워드 검증 화면 강제
             masterInitialized = false;
         }
         updateLocalUI();
