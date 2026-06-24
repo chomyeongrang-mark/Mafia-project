@@ -1302,7 +1302,7 @@ if (!p.isAlive) seat.classList.add("dead");
 
 let nameTag = p.playerName ? `<span style='font-size:9px; color:#f5c2e7; font-weight:bold;'>${p.playerName}</span>` : "";
 if (p.role) {
-if (p.role.faction === "마피아 팀" && p.isAlive) seat.classList.add("마fia-color");
+if (p.role.faction === "마피아 팀" && p.isAlive) seat.classList.add("mafia-color");
 else if (p.role.faction === "시민 팀" && p.isAlive) seat.classList.add("citizen-color");
 else if (p.role.faction === "중립 팀" && p.isAlive) seat.classList.add("neutral-color");
 seat.innerHTML = `<strong>P${p.seatNumber}</strong>${nameTag}<span>${p.role.name}</span>`;
