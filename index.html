@@ -527,9 +527,9 @@ const roleDataMapping = {
 skill: "사격 (합의 사격)", 
 desc: "■ 능력 : 사격 (합의 사격)\n■ 세부 규칙 :\n밤마다 마피아 팀원들과 논의하여 목표물 한 명을 조준하고 처단합니다. 화면에 가장빠른 번호의 마피아 차례때 모두 고개를 듭니다. 생존해 있는 조직원이 여러 명인 경우, 합의 사격을 원칙으로 하여 1명을 최종 타겟을 처단하게 됩니다. 밤 공격에 방어 수단이 제공되지 않은 대상은 다음날 아침 사망자로 처리됩니다." 
 },
-"해커": { 
-skill: "해킹 (정보 확인)", 
-desc: "■ 능력 : 해킹 (정보 확인)\n■ 세부 규칙 :\n밤마다 지정한 플레이어의 스마트폰 신호를 우회 해킹하여, 해당 플레이어의 정확한 '고유 직업 명칭'과 '진영'을 직접 확인해 낼 수 있습니다. 단, 마피아 진영과의 직접적인 접선 통로는 제공되지 않으며, 마피아의 총격에 사살 될 수 있는 위험을 안고 은밀히 도와야 합니다." 
+"건달": { 
+skill: "협박 (투표권 박탈)", 
+desc: "■ 능력 : 협박 (투표권 박탈)\n■ 세부 규칙 :\n밤마다 한 명을 선택해 협박합니다. 협박당한 플레이어는 다음 날 낮 단계의 모든 투표권(지목 투표 및 찬반 투표)을 상실합니다. 밤에 마피아를 협박(지목)할 경우 협박 대신 마피아 조직과의 비밀 연합 채널이 개통되어 접선 상태로 전환됩니다." 
 },
 "마담": { 
 skill: "유혹 (능력 봉쇄)", 
@@ -606,7 +606,7 @@ desc: "■ 능력 : 클론화 (직업 복제)\n■ 세부 규칙 :\n첫날밤(1�
 };
 
 const availableRoles = {
-"마피아 팀": ["마피아", "스파이", "마담", "해커", "사기꾼"],
+"마피아 팀": ["마피아", "스파이", "마담", "건달", "사기꾼"],
 "시민 팀": ["시민", "경찰", "경찰대생", "의사", "명의", "장의사", "기자", "국회의원", "비리판사", "프로파일러", "사립탐정", "테러리스트", "은퇴한킬러"],
 "중립 팀": ["도플갱어", "연쇄살인마"]
 };
@@ -620,7 +620,7 @@ this.name = name; this.faction = faction; this.skillName = skillName; this.descr
 class Player {
 constructor(seatNumber) {
 this.seatNumber = seatNumber; this.playerName = ""; this.role = null; this.isAlive = true; this.x = 0; this.y = 0;
-this.isContacted = false; this.isSkillUsed = false; this.isSwindlerPending = false; 
+this.isContacted = false; this.isSkillUsed = false; this.isSwindlerPending = false; this.isThreatened = false;
 }
 assignRole(role) { this.role = role; }
 }
@@ -686,6 +686,7 @@ selectedHistoryView: selectedHistoryView, historyLogs: historyLogs || [],
 players: players.map(p => ({
 seatNumber: p.seatNumber, playerName: p.playerName, isAlive: p.isAlive, x: p.x, y: p.y,
 isContacted: p.isContacted, isSkillUsed: p.isSkillUsed, isSwindlerPending: p.isSwindlerPending || false,
+isThreatened: p.isThreatened || false,
 role: p.role ? { name: p.role.name, faction: p.role.faction, skillName: p.role.skillName, description: p.role.description } : null
 }))
 });
@@ -711,7 +712,7 @@ if (data.players) {
 players = data.players.map(pData => {
 let p = new Player(pData.seatNumber); p.playerName = pData.playerName; p.isAlive = pData.isAlive; p.x = pData.x; p.y = pData.y;
 p.isContacted = pData.isContacted || false; p.isSkillUsed = pData.isSkillUsed || false;
-p.isSwindlerPending = pData.isSwindlerPending || false;
+p.isSwindlerPending = pData.isSwindlerPending || false; p.isThreatened = pData.isThreatened || false;
 if (pData.role) p.role = new Role(pData.role.name, pData.role.faction, pData.role.skillName, pData.role.description);
 return p;
 });
@@ -917,7 +918,7 @@ gameState = "SETUP"; currentPhase = "DAY"; dayCount = 1; voteState = "NONE"; ski
 nightActionLog = []; historyLogs = []; selectedHistoryView = "CURRENT"; judgmentTarget = null;
 
 players.forEach(p => {
-p.isAlive = true; p.isContacted = false; p.isSkillUsed = false; p.isSwindlerPending = false;
+p.isAlive = true; p.isContacted = false; p.isSkillUsed = false; p.isSwindlerPending = false; p.isThreatened = false;
 });
 
 document.getElementById("center-display").innerHTML = "원형 테이블<br><span style='font-size:13px; font-weight:normal;'>좌석 지정 후 우측 직업 버튼을 배정하세요</span>";
@@ -1150,6 +1151,8 @@ currentPhase = "NIGHT";
 selectedHistoryView = "CURRENT"; 
 } 
 else { 
+players.forEach(p => p.isThreatened = false); // 어제 협박 상태 초기화
+
 const compressedActions = nightActionLog.map(act => ({
 actor: { seatNumber: act.actor.seatNumber, playerName: act.actor.playerName, x: act.actor.x, y: act.actor.y, role: act.actor.role ? { name: act.actor.role.name, faction: act.actor.role.faction } : null },
 target: { seatNumber: act.target.seatNumber, playerName: act.target.playerName, x: act.target.x, y: act.target.y }
@@ -1157,20 +1160,27 @@ target: { seatNumber: act.target.seatNumber, playerName: act.target.playerName, 
 
 historyLogs.push({ day: dayCount, actions: compressedActions });
 
-if (dayCount === 1) {
+// 도플갱어 및 건달 로직 일괄 처리
 nightActionLog.forEach(action => {
 const actorPlayer = players.find(p => p.seatNumber === action.actor.seatNumber);
-if (actorPlayer && actorPlayer.role && actorPlayer.role.name === "도플갱어") {
-if (action.target.seatNumber === 0) return; 
 const targetPlayer = players.find(p => p.seatNumber === action.target.seatNumber);
+
+if (dayCount === 1 && actorPlayer && actorPlayer.role && actorPlayer.role.name === "도플갱어") {
+if (action.target.seatNumber === 0) return; 
 if (targetPlayer && targetPlayer.role) {
 actorPlayer.role = new Role(targetPlayer.role.name, targetPlayer.role.faction, targetPlayer.role.skillName, targetPlayer.role.description);
 actorPlayer.isContacted = targetPlayer.isContacted;
 logAction(`🔮 <strong>[도플갱어 복제 각성]</strong> P${actorPlayer.seatNumber}번이 P${targetPlayer.seatNumber}번의 [${targetPlayer.role.name}] 신분으로 완벽히 변신했습니다!`, "#50fa7b");
 }
 }
-});
+
+if (actorPlayer && actorPlayer.role && actorPlayer.role.name === "건달" && targetPlayer) {
+if (!(targetPlayer.role && targetPlayer.role.name === "마피아")) {
+targetPlayer.isThreatened = true;
+logAction(`👊 <strong>[협박 효과]</strong> P${targetPlayer.seatNumber}번이 건달에게 협박당해 오늘 하루 모든 투표권을 상실합니다.`, "#f38ba8");
 }
+}
+});
 
 players.forEach(p => p.isSwindlerPending = false);
 currentPhase = "DAY"; dayCount++; nightActionLog = []; 
@@ -1249,14 +1259,14 @@ if (skillActor.role && skillActor.role.name === "마담" && skillTarget.role && 
 skillActor.isContacted = true;
 logAction(`📢 <strong>[접선 완료]</strong> 마담(P${skillActor.seatNumber})이 마피아(P${skillTarget.seatNumber})와 연합되었습니다!`, "#ff5555");
 }
+if (skillActor.role && skillActor.role.name === "건달" && skillTarget.role && skillTarget.role.name === "마피아") {
+skillActor.isContacted = true;
+logAction(`📢 <strong>[접선 완료]</strong> 건달(P${skillActor.seatNumber})이 마피아(P${skillTarget.seatNumber})와 연합되었습니다!`, "#ff5555");
+}
 
 nightActionLog.push({ actor: skillActor, target: skillTarget });
 logAction(`🌟 <strong>[밤 ${dayCount}일차]</strong> P${skillActor.seatNumber}(${skillActor.playerName}) ➔ P${skillTarget.seatNumber} <strong>[${skillActor.role.skillName}]</strong>`);
 
-if (skillActor.role.name === "해커") {
-const info = skillTarget.role ? `${skillTarget.role.name} (${skillTarget.role.faction})` : '시민';
-customAlert(`💻 [해커 정보 탐지 패널]\n\n지목한 플레이어: ${skillTarget.seatNumber}번 [${skillTarget.playerName}]\n확인된 신분 직업: ${info}`);
-}
 if (skillActor.role.name === "스파이") {
 const trueRole = skillTarget.role ? skillTarget.role.name : "시민";
 customAlert(`🕵️‍♂️ [스파이 첩보 알림]\n\n지목한 플레이어: P${skillTarget.seatNumber}번 [${skillTarget.playerName}]\n🎯 실제 정밀 직업: [ ${trueRole} ]`);
@@ -1456,13 +1466,27 @@ const msg = document.getElementById("phone-status-msg");
 const judgePanel = document.getElementById("phone-judgment-panel"); judgePanel.style.display = "none";
 
 if (voteState === "SUSPECT") {
-msg.innerText = p1.isAlive ? "🔥 마피아로 의심되는 생존자를 선택 후 지목 투표하세요!" : "사망 상태입니다. 관전 대기하세요.";
+if (!p1.isAlive) {
+msg.innerText = "사망 상태입니다. 관전 대기하세요.";
+} else if (p1.isThreatened) {
+msg.innerText = "👊 건달에게 협박당하여 오늘 투표에 참여할 수 없습니다.";
 msg.style.color = "#f38ba8";
+} else {
+msg.innerText = "🔥 마피아로 의심되는 생존자를 선택 후 지목 투표하세요!";
+msg.style.color = "#f38ba8";
+}
 } else if (voteState === "JUDGMENT") {
-if (p1.isAlive && p1 !== judgmentTarget && judgmentTarget) {
+if (!p1.isAlive) {
+msg.innerText = "사망 상태입니다. 관전 대기하세요.";
+} else if (p1.isThreatened) {
+msg.innerText = "👊 건달에게 협박당하여 찬반 투표에 참여할 수 없습니다.";
+msg.style.color = "#f38ba8";
+} else if (p1 !== judgmentTarget && judgmentTarget) {
 msg.innerText = `🔥 무대 위 대상 [${judgmentTarget.playerName}] 님을 처형하시겠습니까?`;
 judgePanel.style.display = "flex";
-} else { msg.innerText = "찬반 심판 투표가 진행 중입니다."; }
+} else { 
+msg.innerText = "찬반 심판 투표가 진행 중입니다."; 
+}
 } 
 else if (gameState === "PLAY" && currentPhase === "NIGHT" && p1.isAlive && p1.role && p1.role.name === "사기꾼" && p1.isSwindlerPending) {
 if (p1.isSkillUsed) {
@@ -1495,7 +1519,7 @@ let finalDisplayName = p.playerName, textColor = "#cdd6f4", isTargetVisibleInRed
 if (p1.role && p1.role.faction === "마피아 팀") {
 if (p1.role.name === "마피아") {
 if (p.role && p.role.name === "마피아") isTargetVisibleInRedNetwork = true;
-if (p.role && (p.role.name === "스파이" || p.role.name === "마담" || p.role.name === "사기꾼" || p.role.name === "해커") && p.isContacted) isTargetVisibleInRedNetwork = true;
+if (p.role && (p.role.name === "스파이" || p.role.name === "마담" || p.role.name === "사기꾼" || p.role.name === "건달") && p.isContacted) isTargetVisibleInRedNetwork = true;
 } 
 else if (p1.isContacted) {
 if (p.role && p.role.name === "마피아") isTargetVisibleInRedNetwork = true;
@@ -1508,7 +1532,7 @@ finalDisplayName = `P${p.seatNumber} ${p.playerName}`; textColor = "#ff5555";
 }
 
 let html = `<span style="color: ${textColor}; font-weight: ${isTargetVisibleInRedNetwork ? 'bold' : 'normal'};">${finalDisplayName} ${!p.isAlive ? '(사망)' : ''}</span>`;
-if (voteState === "SUSPECT" && p1.isAlive && p.isAlive && p !== p1) {
+if (voteState === "SUSPECT" && p1.isAlive && !p1.isThreatened && p.isAlive && p !== p1) {
 const myTargetSeat = activeVotes[isPlayerMode ? localStorage.getItem("mySeatNumber") : simulatorPlayerId];
 const hasVoted = myTargetSeat == p.seatNumber ? "background-color:#a6e3a1; color:#11111b" : "";
 html += `<button class="phone-vote-btn" style="display:block; ${hasVoted}" onclick="castSuspectVote(${p.seatNumber})">지목</button>`;
@@ -1532,6 +1556,8 @@ broadcastState();
 
 function castSuspectVote(targetSeat) {
 const mySeat = isPlayerMode ? localStorage.getItem("mySeatNumber") : simulatorPlayerId;
+const p1 = players[mySeat - 1];
+if (p1 && p1.isThreatened) return customAlert("건달에게 협박당하여 오늘 투표권이 상실되었습니다.");
 if (activeVotes[mySeat]) return customAlert("이미 지목권을 행사하셨습니다.");
 activeVotes[mySeat] = targetSeat; broadcastState();
 }
@@ -1539,6 +1565,7 @@ activeVotes[mySeat] = targetSeat; broadcastState();
 function castJudgmentVote(decision) {
 const mySeat = isPlayerMode ? localStorage.getItem("mySeatNumber") : simulatorPlayerId;
 const p1 = players[mySeat - 1]; if (!p1) return;
+if (p1.isThreatened) return customAlert("건달에게 협박당하여 오늘 투표권이 상실되었습니다.");
 if (p1.role && p1.role.name === "비리판사") judgmentVotes.judgeVote = decision;
 if (decision === "KILL") judgmentVotes.kill++; else judgmentVotes.save++;
 document.getElementById("phone-judgment-panel").style.display = "none";
